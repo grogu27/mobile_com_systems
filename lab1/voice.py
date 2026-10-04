@@ -1,114 +1,460 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.io import wavfile
-from scipy.signal import welch
+import wave
 
-# ---------- 1. Чтение файлов ----------
-fs_orig, x_orig = wavfile.read("Моя_запись1.wav")
-fs_dec,  x_dec  = wavfile.read("Моя_запись1_11.wav")
 
-print(f"Оригинал:   fs = {fs_orig} Гц, отсчётов = {len(x_orig)}, "
-      f"длительность = {len(x_orig)/fs_orig:.3f} с")
-print(f"Прореженный: fs = {fs_dec} Гц, отсчётов = {len(x_dec)}, "
-      f"длительность = {len(x_dec)/fs_dec:.3f} с")
+# ============================================================
+# ФУНКЦИЯ ЧТЕНИЯ WAV
+# ============================================================
 
-# Приводим к float и моно (на случай стерео)
-def to_mono_float(x):
-    if x.ndim > 1:
-        x = x.mean(axis=1)
-    if x.dtype == np.int16:
-        x = x.astype(np.float64) / 32768.0
-    elif x.dtype == np.int32:
-        x = x.astype(np.float64) / 2147483648.0
+def read_wav(filename):
+    with wave.open(filename, 'rb') as wav:
+        n_channels = wav.getnchannels()
+        sample_width = wav.getsampwidth()
+        sample_rate = wav.getframerate()
+        n_frames = wav.getnframes()
+
+        raw_data = wav.readframes(n_frames)
+
+    # Определяем тип данных по глубине звука
+    if sample_width == 1:
+        data = np.frombuffer(raw_data, dtype=np.uint8)
+        data = data.astype(np.float64) - 128  #128 соответствует нулю сигнала.
+
+    elif sample_width == 2:
+        data = np.frombuffer(raw_data, dtype=np.int16)
+        data = data.astype(np.float64)
+
+    elif sample_width == 4:
+        data = np.frombuffer(raw_data, dtype=np.int32)
+        data = data.astype(np.float64)
+
     else:
-        x = x.astype(np.float64)
-    return x
+        raise ValueError(
+            f"Неподдерживаемая глубина звука: {sample_width * 8} бит"
+        )
 
-x_orig = to_mono_float(x_orig)
-x_dec  = to_mono_float(x_dec)
+    # Если стерео — преобразуем в моно
+    if n_channels > 1:
+        data = data.reshape(-1, n_channels)
+        data = np.mean(data, axis=1)
+    
+    return data, sample_rate
 
-# ---------- 2. Прямое ДПФ (БПФ) ----------
-def compute_spectrum(x, fs):
-    N = len(x)
-    # окно Ханна, чтобы уменьшить утечку спектра
-    w = np.hanning(N)
-    X = np.fft.rfft(x * w)
-    freqs = np.fft.rfftfreq(N, d=1.0/fs)
-    # нормировка амплитуды: учитываем окно и односторонний спектр
-    amp = np.abs(X) * 2.0 / (N * w.sum() / N) / 2.0
-    # проще: amp = 2*|X| / sum(w)
-    amp = 2.0 * np.abs(X) / np.sum(w)
-    return freqs, amp
 
-f_orig, A_orig = compute_spectrum(x_orig, fs_orig)
-f_dec,  A_dec  = compute_spectrum(x_dec,  fs_dec)
+# ============================================================
+# ДПФ
+# ============================================================
 
-# ---------- 3. Определение ширины спектра ----------
-def spectrum_width(freqs, amp, threshold_db=-40, f_max=None):
-    """
-    Ширина спектра: максимальная частота, на которой амплитуда
-    ещё превышает threshold_db от максимума.
-    f_max — верхняя граница поиска (например, fs/2 для антиалиасинга).
-    """
-    amp_db = 20 * np.log10(amp / amp.max() + 1e-12)
-    mask = amp_db > threshold_db
-    if f_max is not None:
-        mask &= (freqs <= f_max)
-    if not np.any(mask):
-        return 0.0
-    return freqs[mask][-1]
+def calculate_dft(signal, sample_rate):
+    N = len(signal)
 
-W_orig = spectrum_width(f_orig, A_orig, threshold_db=-40)
-W_dec  = spectrum_width(f_dec,  A_dec,  threshold_db=-40)
+    # Убираем постоянную составляющую
+    signal = signal - np.mean(signal)
 
-print(f"\nШирина спектра оригинала  (-40 дБ): {W_orig:.1f} Гц")
-print(f"Ширина спектра прореженного (-40 дБ): {W_dec:.1f} Гц")
-print(f"Теоретический предел для прореженного (fs/2): {fs_dec/2:.1f} Гц")
+    # ДПФ
+    X = np.fft.fft(signal)
 
-# ---------- 4. Графики ----------
-fig, axes = plt.subplots(2, 1, figsize=(12, 8))
+    # Частоты
+    frequencies = np.fft.fftfreq(N, d=1 / sample_rate)
 
-# Оригинал
-axes[0].plot(f_orig, A_orig, color='C0', lw=0.7)
-axes[0].axvline(W_orig, color='r', ls='--', label=f'ширина ≈ {W_orig:.0f} Гц')
-axes[0].axvline(fs_dec/2, color='g', ls=':', label=f'Найквист прореж. = {fs_dec/2:.0f} Гц')
-axes[0].set_title(f'Амплитудный спектр оригинала (fs = {fs_orig} Гц)')
-axes[0].set_xlabel('Частота, Гц')
-axes[0].set_ylabel('Амплитуда')
-axes[0].set_xlim(0, fs_orig/2)
-axes[0].grid(True, alpha=0.3)
-axes[0].legend()
+    mask = frequencies >= 0
 
-# Прореженный
-axes[1].plot(f_dec, A_dec, color='C1', lw=0.7)
-axes[1].axvline(W_dec, color='r', ls='--', label=f'ширина ≈ {W_dec:.0f} Гц')
-axes[1].axvline(fs_dec/2, color='g', ls=':', label=f'Найквист = {fs_dec/2:.0f} Гц')
-axes[1].set_title(f'Амплитудный спектр прореженного сигнала (fs = {fs_dec} Гц)')
-axes[1].set_xlabel('Частота, Гц')
-axes[1].set_ylabel('Амплитуда')
-axes[1].set_xlim(0, fs_orig/2)   # одинаковый масштаб по X для сравнения
-axes[1].grid(True, alpha=0.3)
-axes[1].legend()
+    frequencies = frequencies[mask]
+    amplitude = np.abs(X[mask]) / N
+
+    # Для одностороннего спектра амплитуду нужно удвоить,
+    # кроме компоненты на 0 Гц
+    if N > 1:
+        amplitude[1:] *= 2
+
+    return frequencies, amplitude
+
+
+# ============================================================
+# ОПРЕДЕЛЕНИЕ ГРАНИЦ СПЕКТРА
+# ============================================================
+
+def find_spectrum_width(frequencies, amplitude):
+    # Чтобы шум не считался частью спектра,
+    # задаём порог относительно максимальной амплитуды.
+    threshold = np.max(amplitude) * 0.02
+
+    significant = amplitude >= threshold
+
+    if not np.any(significant):
+        return None, None, None
+
+    f_min = frequencies[significant][0]
+    f_max = frequencies[significant][-1]
+
+    width = f_max - f_min
+
+    return f_min, f_max, width
+
+
+# ============================================================
+# АНАЛИЗ ОДНОГО СИГНАЛА
+# ============================================================
+
+def analyze_wav(filename, title, output_image):
+    print()
+    print("=" * 60)
+    print(title)
+    print("=" * 60)
+
+    signal, fs = read_wav(filename)
+
+    print(f"Файл: {filename}")
+    print(f"Частота дискретизации: {fs} Гц")
+    print(f"Количество отсчётов: {len(signal)}")
+    print(f"Длительность: {len(signal) / fs:.3f} с")
+
+    # ДПФ
+    frequencies, amplitude = calculate_dft(signal, fs)
+
+    # Границы спектра
+    f_min, f_max, width = find_spectrum_width(
+        frequencies,
+        amplitude
+    )
+
+    print()
+    print("Результаты ДПФ:")
+    print(f"f_min = {f_min:.3f} Гц")
+    print(f"f_max = {f_max:.3f} Гц")
+    print(f"Ширина спектра:")
+    print(f"Δf = f_max - f_min = {width:.3f} Гц")
+
+    # Максимальная амплитуда
+    max_index = np.argmax(amplitude)
+
+    print()
+    print(
+        f"Максимальная амплитуда: "
+        f"{amplitude[max_index]:.3f}"
+    )
+    print(
+        f"Основная частота: "
+        f"{frequencies[max_index]:.3f} Гц"
+    )
+
+    # ========================================================
+    # ГРАФИК СПЕКТРА
+    # ========================================================
+
+    plt.figure(figsize=(12, 5))
+
+    plt.plot(
+        frequencies,
+        amplitude
+    )
+
+    # Показываем найденные границы
+    plt.axvline(
+        f_min,
+        linestyle='--',
+        label=f'f_min = {f_min:.2f} Гц'
+    )
+
+    plt.axvline(
+        f_max,
+        linestyle='--',
+        label=f'f_max = {f_max:.2f} Гц'
+    )
+
+    plt.xlabel('Частота, Гц')
+    plt.ylabel('Амплитуда')
+    plt.title(
+        f'{title}\n'
+        f'Ширина спектра = {width:.2f} Гц'
+    )
+
+    plt.grid(True)
+    plt.legend()
+    #plt.xlim(0, 2000)
+    plt.xscale('log')
+    plt.xlim(50, 10000)
+    plt.xticks([50, 100, 200, 500, 1000, 2000, 5000, 10000],
+           ['50', '100', '200', '500', '1k', '2k', '5k', '10k'])
+    # Показываем только область с полезным спектром
+    #plt.xlim(0, min(fs / 2, f_max * 1.2))
+
+    plt.tight_layout()
+    plt.savefig(
+        output_image,
+        dpi=300,
+        format='png'
+    )
+
+    #plt.show()
+
+    return frequencies, amplitude
+
+
+# ============================================================
+# 1. ОРИГИНАЛЬНЫЙ WAV
+# ============================================================
+
+freq_original, amp_original = analyze_wav(
+    "Моя_запись1.wav",
+    "Оригинальный сигнал",
+    "spectrum_original.png"
+)
+
+
+# ============================================================
+# 2. ПРОРЕЖЕННЫЙ WAV
+# ============================================================
+
+freq_decimated, amp_decimated = analyze_wav(
+    "Моя_запись1_11.wav",
+    "Прореженный сигнал",
+    "spectrum_decimated.png"
+)
+
+
+# ============================================================
+# 3. СРАВНЕНИЕ СПЕКТРОВ
+# ============================================================
+
+plt.figure(figsize=(12, 6))
+
+plt.plot(
+    freq_original,
+    amp_original,
+    label='Оригинальный сигнал'
+)
+
+plt.plot(
+    freq_decimated,
+    amp_decimated,
+    label='Прореженный сигнал'
+)
+
+plt.xlabel('Частота, Гц')
+plt.ylabel('Амплитуда')
+
+plt.title(
+    'Сравнение амплитудных спектров'
+)
+
+plt.grid(True)
+plt.legend()
+
+# Удобно смотреть только первую часть спектра
+plt.xlim(
+    0,
+    min(
+        freq_original[-1],
+        freq_decimated[-1]
+    )
+)
 
 plt.tight_layout()
-plt.savefig("spectra.png", dpi=300)
+plt.savefig(
+    "spectrum_comparison.png",
+    dpi=300,
+    format='png'
+)
+
 #plt.show()
 
-# ---------- 5. Дополнительно: спектр в дБ ----------
-fig2, ax = plt.subplots(figsize=(12, 5))
-ax.plot(f_orig, 20*np.log10(A_orig/A_orig.max()+1e-12),
-        label=f'оригинал (fs={fs_orig})', lw=0.7)
-ax.plot(f_dec,  20*np.log10(A_dec /A_dec.max() +1e-12),
-        label=f'прореженный (fs={fs_dec})', lw=0.7, alpha=0.8)
-ax.axhline(-40, color='k', ls='--', lw=0.8, label='порог −40 дБ')
-ax.axvline(fs_dec/2, color='g', ls=':', label=f'Найквист = {fs_dec/2:.0f} Гц')
-ax.set_xlim(0, fs_orig/2)
-ax.set_ylim(-100, 5)
-ax.set_xlabel('Частота, Гц')
-ax.set_ylabel('Уровень, дБ')
-ax.set_title('Спектры в логарифмическом масштабе')
-ax.grid(True, alpha=0.3)
-ax.legend()
+# ============================================================
+# 4. СПЕКТРЫ В ДБ
+# ============================================================
+
+def to_db(amplitude):
+    """Перевод амплитуды в дБ относительно максимума."""
+    amp_max = np.max(amplitude)
+    if amp_max <= 0:
+        return np.full_like(amplitude, -np.inf)
+    return 20 * np.log10(amplitude / amp_max + 1e-12)
+
+
+amp_original_db  = to_db(amp_original)
+amp_decimated_db = to_db(amp_decimated)
+
+
+# --- 4a. Оригинал в дБ ---
+plt.figure(figsize=(12, 5))
+
+plt.plot(freq_original, amp_original_db, color='C0', lw=0.7)
+
+plt.xlabel('Частота, Гц')
+plt.ylabel('Уровень, дБ')
+plt.title('Амплитудный спектр оригинала (дБ)')
+
+plt.ylim(-80, 5)
+plt.xlim(0, freq_original[-1])
+plt.grid(True, alpha=0.3)
+
 plt.tight_layout()
-plt.savefig("spectra_db.png", dpi=300)
-#plt.show()
+plt.savefig("spectrum_original_db.png", dpi=300, format='png')
+
+
+# --- 4b. Прореженный в дБ ---
+plt.figure(figsize=(12, 5))
+
+plt.plot(freq_decimated, amp_decimated_db, color='C1', lw=0.7)
+
+plt.axvline(
+    freq_decimated[-1],
+    color='g', ls=':',
+    label=f'Найквист = {freq_decimated[-1]:.0f} Гц'
+)
+
+plt.xlabel('Частота, Гц')
+plt.ylabel('Уровень, дБ')
+plt.title('Амплитудный спектр прореженного сигнала (дБ)')
+
+plt.ylim(-80, 5)
+plt.xlim(0, freq_decimated[-1])
+plt.grid(True, alpha=0.3)
+plt.legend()
+
+plt.tight_layout()
+plt.savefig("spectrum_decimated_db.png", dpi=300, format='png')
+
+
+# --- 4c. Сравнение в дБ ---
+plt.figure(figsize=(12, 6))
+
+plt.plot(
+    freq_original, amp_original_db,
+    label=f'Оригинал (fs = {freq_original[-1]*2:.0f} Гц)',
+    color='C0', lw=0.7
+)
+
+plt.plot(
+    freq_decimated, amp_decimated_db,
+    label=f'Прореженный (fs = {freq_decimated[-1]*2:.0f} Гц)',
+    color='C1', lw=0.7, alpha=0.85
+)
+
+plt.axhline(-40, color='k', ls='--', lw=0.8, label='порог −40 дБ')
+plt.axvline(freq_decimated[-1], color='g', ls=':', label='Найквист прореженного')
+
+plt.xlabel('Частота, Гц')
+plt.ylabel('Уровень, дБ')
+plt.title('Сравнение спектров в дБ')
+
+plt.ylim(-80, 5)
+plt.xlim(0, freq_original[-1])
+plt.grid(True, alpha=0.3)
+plt.legend()
+
+plt.tight_layout()
+plt.savefig("spectrum_comparison_db.png", dpi=300, format='png')
+
+
+
+# ============================================================
+# 5. СДВИГ СПЕКТРА НА +{SHIFT_HZ} Гц (писклявый голос)
+# ============================================================
+
+SHIFT_HZ = 200.0
+
+
+def frequency_shift_fft_v2(signal, fs, shift_hz):
+    """
+    Сдвиг спектра вещественного сигнала на shift_hz (SSB).
+    """
+    N = len(signal)
+    X = np.fft.fft(signal)
+
+    dk = int(round(shift_hz * N / fs))
+
+    X_analytic = np.zeros_like(X)
+    X_analytic[0] = X[0]                     
+    X_analytic[1:N//2] = 2 * X[1:N//2]       # положительные частоты ×2
+    if N % 2 == 0:
+        X_analytic[N//2] = X[N//2]           
+
+    # 2. Сдвигаем  спектр вправо на dk позиций
+    X_shifted = np.zeros_like(X)
+    if 0 <= dk < N:
+        X_shifted[dk:N] = X_analytic[:N - dk]
+
+    y = np.fft.ifft(X_shifted).real
+
+    peak = np.max(np.abs(y))
+    if peak > 0:
+        y = y / peak * np.max(np.abs(signal))
+
+    return y
+
+# --- 5a. Сдвигаем оригинал ---
+signal_orig, fs_orig = read_wav("Моя_запись1.wav")
+
+signal_shifted = frequency_shift_fft_v2(
+    signal_orig,
+    fs_orig,
+    SHIFT_HZ
+)
+
+# Сохраняем как int16 WAV
+out_shifted = np.clip(
+    np.round(signal_shifted),
+    -32768, 32767
+).astype(np.int16)
+
+with wave.open("Моя_запись1_shift1000.wav", "wb") as w:
+    w.setnchannels(1)
+    w.setsampwidth(2)
+    w.setframerate(fs_orig)
+    w.writeframes(out_shifted.tobytes())
+
+print()
+print("=" * 60)
+print(f"Сдвиг спектра на +{SHIFT_HZ:.0f} Гц")
+print("=" * 60)
+print(f"Файл: Моя_запись1_shift1000.wav")
+print(f"Частота дискретизации: {fs_orig} Гц")
+print(f"Количество отсчётов: {len(signal_shifted)}")
+
+
+# --- 5b. Анализ спектра сдвинутого сигнала ---
+freq_shifted, amp_shifted = analyze_wav(
+    "Моя_запись1_shift1000.wav",
+    f"Сдвиг спектра на +{SHIFT_HZ:.0f} Гц",
+    "spectrum_shift1000.png"
+)
+
+
+# --- 5c. Сравнение спектров в дБ ---
+amp_shifted_db = to_db(amp_shifted)
+
+plt.figure(figsize=(12, 6))
+
+plt.plot(
+    freq_original, amp_original_db,
+    label='Оригинал',
+    color='C0', lw=0.7
+)
+
+plt.plot(
+    freq_shifted, amp_shifted_db,
+    label=f'Сдвиг на +{SHIFT_HZ:.0f} Гц',
+    color='C2', lw=0.7, alpha=0.85
+)
+
+plt.xlabel('Частота, Гц')
+plt.ylabel('Уровень, дБ')
+plt.title(f'Спектры: оригинал vs сдвиг на +{SHIFT_HZ:.0f} Гц')
+
+plt.ylim(-80, 5)
+#plt.xlim(0, fs_orig / 2)
+#plt.xlim(0, 2000)
+plt.xscale('log')
+plt.xlim(50, 10000)
+plt.xticks([50, 100, 200, 500, 1000, 2000, 5000, 10000],
+           ['50', '100', '200', '500', '1k', '2k', '5k', '10k'])
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.tight_layout()
+plt.savefig(
+    "spectrum_shift1000_db.png",
+    dpi=300,
+    format='png'
+)

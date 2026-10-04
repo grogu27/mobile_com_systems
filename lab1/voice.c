@@ -15,7 +15,7 @@ typedef struct __attribute__((packed)) {
     uint32_t sampleRate;     // Частота дискретизации, например 44100 (4 байта)
     uint32_t byteRate;       // Скорость передачи данных (sampleRate * numChannels * bitsPerSample / 8) (4 байта)
     uint16_t blockAlign;     // (numChannels * bitsPerSample / 8) (2 байта)
-    uint16_t bitsPerSample;  // Глубина цвета, например 16 бит (2 байта)
+    uint16_t bitsPerSample;  // Глубина звука, например 16 бит (2 байта)
     
     char     subchunk2ID[4]; // Содержит "data" (4 байта)
     uint32_t subchunk2Size;  // Размер аудиоданных в байтах (4 байта)
@@ -79,7 +79,6 @@ int main(){
     }
     fclose(fd);
 
-    /* сколько кадров останется после децимации */
     uint32_t new_total_frames = (total_frames + DECIM - 1) / DECIM;
     uint32_t new_data_size = new_total_frames * (uint32_t)frame_size;
 
@@ -90,23 +89,21 @@ int main(){
         return 1; 
     }
 
-    /* берём каждый DECIM-й кадр */
     for (uint32_t i = 0, j = 0; i < total_frames; i += DECIM, ++j) {
         memcpy(new_data + (size_t)j * frame_size,
                data  + (size_t)i * frame_size,
                frame_size);
     }
 
-    /* обновляем заголовок */
     wav_header_t new_header = header;
-    new_header.sampleRate  = header.sampleRate / DECIM / 1;
-        new_header.byteRate    = new_header.sampleRate *
+    // new_header.sampleRate = header.sampleRate / DECIM / 2; // приводит к увеличению длительности и замедлению звука в два раза
+    new_header.sampleRate = header.sampleRate / DECIM;
+    new_header.byteRate = new_header.sampleRate *
                              new_header.numChannels *
                              new_header.bitsPerSample / 8;
     new_header.subchunk2Size = new_data_size;
-    new_header.chunkSize     = new_header.subchunk2Size
+    new_header.chunkSize = new_header.subchunk2Size
                              + sizeof(wav_header_t) - 8;
-
 
     FILE *fd2 = fopen("Моя_запись1_11.wav", "w+b");
     if (!fd2) { perror("fopen out"); free(data); free(new_data); return 1; }
@@ -124,6 +121,7 @@ int main(){
     printf("  subchunk2Size = %u\n", new_header.subchunk2Size);
     printf("  total_frames  = %u\n", new_total_frames);
     printf("  size  = %u\n", new_header.chunkSize);
+    printf("  bitsPerSample  = %u\n", new_header.bitsPerSample);
 
 
     //12
