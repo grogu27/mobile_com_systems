@@ -1,0 +1,41 @@
+x: 1 0 0 0
+Период сихропоследовательности: 15
+1) Register returned to initial state at step 15
+2) Register returned to initial state at step 30
+3) Register returned to initial state at step 45
+4) Register returned to initial state at step 60
+5) Register returned to initial state at step 75
+6) Register returned to initial state at step 90
+7) Register returned to initial state at step 105
+8) Register returned to initial state at step 120
+9) Register returned to initial state at step 135
+10) Register returned to initial state at step 150
+11) Register returned to initial state at step 165
+12) Register returned to initial state at step 180
+13) Register returned to initial state at step 195
+14) Register returned to initial state at step 210
+15) Register returned to initial state at step 225
+16) Register returned to initial state at step 240
+17) Register returned to initial state at step 255
+18) Register returned to initial state at step 270
+19) Register returned to initial state at step 285
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+0 0 0 1 0 0 1 1 0 1 0 1 1 1 1 
+
