@@ -1,0 +1,65 @@
+x: 0 1 1 0
+Период сихропоследовательности: 15
+1) Register returned to initial state at step 10
+2) Register returned to initial state at step 25
+3) Register returned to initial state at step 40
+4) Register returned to initial state at step 55
+5) Register returned to initial state at step 70
+6) Register returned to initial state at step 85
+7) Register returned to initial state at step 100
+8) Register returned to initial state at step 115
+9) Register returned to initial state at step 130
+10) Register returned to initial state at step 145
+11) Register returned to initial state at step 160
+12) Register returned to initial state at step 175
+13) Register returned to initial state at step 190
+14) Register returned to initial state at step 205
+15) Register returned to initial state at step 220
+16) Register returned to initial state at step 235
+17) Register returned to initial state at step 250
+18) Register returned to initial state at step 265
+19) Register returned to initial state at step 280
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+0 1 1 0 1 0 1 1 1 1 0 0 0 1 0 
+
+======================checker===============
+Period: 15
+Количество единиц: 8	Количество нулей: 7
+Количество циклов с длинной 1: 5
+Количество циклов с длинной 2: 1
+Количество циклов с длинной 3: 1
+Количество циклов с длинной 4: 1
+Количество циклов с длинной 5: 0
+Сдвиг 0: 1.000000
+Сдвиг 1: -0.066667
+Сдвиг 2: -0.066667
+Сдвиг 3: -0.066667
+Сдвиг 4: -0.066667
+Сдвиг 5: -0.066667
+Сдвиг 6: -0.066667
+Сдвиг 7: -0.066667
+Сдвиг 8: -0.066667
+Сдвиг 9: -0.066667
+Сдвиг 10: -0.066667
+Сдвиг 11: -0.066667
+Сдвиг 12: -0.066667
+Сдвиг 13: -0.066667
+Сдвиг 14: -0.066667
+Последовательность соответсвует свойствам: 1: 1	 2: 1	 3: 1
